@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Space Mission Mega</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<style>
+/* ---------- GLOBAL ---------- */
+* {
+  box-sizing: border-box;
+  font-family: "Segoe UI", sans-serif;
+}
+body {
+  margin: 0;
+  overflow: hidden;
+  background: black;
+  color: white;
+}
+
+/* ---------- START SCREEN ---------- */
+#startScreen {
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(circle at top, #0b1d3a, #000);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+#rocket {
+  font-size: 80px;
+  animation: fly 3s infinite alternate ease-in-out;
+}
+
+@keyframes fly {
+  from { transform: translateY(30px); }
+  to { transform: translateY(-30px); }
+}
+
+#startScreen h1 {
+  margin: 10px 0;
+  letter-spacing: 2px;
+}
+
+#startBtn {
+  padding: 15px 30px;
+  font-size: 18px;
+  border: none;
+  border-radius: 30px;
+  background: linear-gradient(45deg, #00d4ff, #0077ff);
+  color: white;
+  cursor: pointer;
+}
+
+#credit {
+  margin-top: 20px;
+  font-size: 14px;
+  opacity: 0.8;
+}
+
+/* ---------- GAME SCREEN ---------- */
+#gameScreen {
+  display: none;
+  height: 100vh;
+  background: radial-gradient(circle at top, #1a0033, #000);
+  padding: 10px;
+}
+
+/* ---------- HUD ---------- */
+#hud {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+/* ---------- BOARD ---------- */
+#board {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 8px;
+  max-width: 700px;
+  margin: auto;
+}
+
+.tile {
+  background: rgba(255,255,255,0.1);
+  border: 1px solid #555;
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  position: relative;
+  border-radius: 10px;
+  transition: transform 0.2s;
+}
+.tile:hover { transform: scale(1.05); }
+
+.earth { background: #0a5; }
+.mars { background: #a30; }
+.blackhole { background: #300; }
+.alien { background: #034; }
+
+/* ---------- ROCKETS ---------- */
+.rocket {
+  position: absolute;
+  font-size: 24px;
+}
+
+/* ---------- QUESTION MODAL ---------- */
+#modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.8);
+  display: none;
+  align-items: center;
+  justify-content: center;
+}
+
+#modalBox {
+  background: #111;
+  padding: 20px;
+  border-radius: 12px;
+  width: 90%;
+  max-width: 400px;
+}
+
+button.option {
+  width: 100%;
+  margin: 5px 0;
+  padding: 10px;
+  border: none;
+  border-radius: 8px;
+  background: #222;
+  color: white;
+  cursor: pointer;
+}
+button.option:hover { background: #444; }
+</style>
+</head>
+
+<body>
+
+<!-- START SCREEN -->
+<div id="startScreen">
+  <div id="rocket">🚀</div>
+  <h1>SPACE MISSION MEGA</h1>
+  <button id="startBtn">START MISSION</button>
+  <div id="credit">Created by: Y. Mohammed Shayan & N. Hridhay</div>
+  <p style="opacity:0.6">Press ENTER to start</p>
+</div>
+
+<!-- GAME SCREEN -->
+<div id="gameScreen">
+  <div id="hud">
+    <div id="turn">Player 1's Turn 🚀</div>
+    <div id="fuel">Fuel ⛽ P1: 3 | P2: 3</div>
+  </div>
+  <div id="board"></div>
+</div>
+
+<!-- QUESTION MODAL -->
+<div id="modal">
+  <div id="modalBox">
+    <h3 id="questionText"></h3>
+    <div id="options"></div>
+  </div>
+</div>
+
+<script>
+/* ---------- START ---------- */
+const startBtn = document.getElementById("startBtn");
+const startScreen = document.getElementById("startScreen");
+const gameScreen = document.getElementById("gameScreen");
+
+startBtn.onclick = startGame;
+document.addEventListener("keydown", e => {
+  if (e.key === "Enter") startGame();
+});
+
+function startGame() {
+  startScreen.style.display = "none";
+  gameScreen.style.display = "block";
+}
+
+/* ---------- GAME DATA ---------- */
+const board = document.getElementById("board");
+const modal = document.getElementById("modal");
+const questionText = document.getElementById("questionText");
+const optionsDiv = document.getElementById("options");
+
+let currentPlayer = 1;
+let positions = [0, 0];
+let fuel = [3, 3];
+let awaitingMoveTile = null;
+
+const questions = shuffle([
+  {q:"Which planet is called the Red Planet?", a:"Mars", o:["Mars","Venus","Jupiter","Mercury"]},
+  {q:"First satellite of Earth?", a:"Moon", o:["Moon","ISS","Phobos","Deimos"]},
+  {q:"What protects Earth from solar wind?", a:"Magnetic Field", o:["Gravity","Atmosphere","Magnetic Field","Ozone"]},
+  {q:"Hottest planet?", a:"Venus", o:["Mars","Venus","Mercury","Jupiter"]},
+  {q:"Galaxy we live in?", a:"Milky Way", o:["Andromeda","Whirlpool","Milky Way","Sombrero"]},
+  {q:"Fuel needed to escape Earth?", a:"Escape Velocity", o:["Gravity","Escape Velocity","Orbit","Thrust"]}
+]);
+
+/* ---------- BOARD ---------- */
+for (let i = 0; i < 21; i++) {
+  const tile = document.createElement("div");
+  tile.className = "tile";
+  if (i === 0) tile.classList.add("earth");
+  if (i === 20) tile.classList.add("mars");
+  if (i === 8) tile.classList.add("blackhole");
+  if (i === 14) tile.classList.add("alien");
+
+  tile.onclick = () => selectTile(i);
+  board.appendChild(tile);
+}
+renderRockets();
+
+/* ---------- FUNCTIONS ---------- */
+function selectTile(i) {
+  if (i !== positions[currentPlayer-1] + 1) return;
+  awaitingMoveTile = i;
+  askQuestion();
+}
+
+function askQuestion() {
+  const q = questions.pop();
+  modal.style.display = "flex";
+  questionText.textContent = q.q;
+  optionsDiv.innerHTML = "";
+  q.o.forEach(opt => {
+    const b = document.createElement("button");
+    b.className = "option";
+    b.textContent = opt;
+    b.onclick = () => answer(opt === q.a);
+    optionsDiv.appendChild(b);
+  });
+}
+
+function answer(correct) {
+  modal.style.display = "none";
+  if (correct) {
+    positions[currentPlayer-1]++;
+    if (Math.random() < 0.3) fuel[currentPlayer-1]++;
+  }
+  currentPlayer = currentPlayer === 1 ? 2 : 1;
+  updateHUD();
+  renderRockets();
+}
+
+function renderRockets() {
+  document.querySelectorAll(".rocket").forEach(r => r.remove());
+  positions.forEach((pos, i) => {
+    const r = document.createElement("div");
+    r.className = "rocket";
+    r.textContent = i === 0 ? "🚀" : "🛸";
+    board.children[pos].appendChild(r);
+  });
+}
+
+function updateHUD() {
+  document.getElementById("turn").textContent =
+    `Player ${currentPlayer}'s Turn ${currentPlayer===1?"🚀":"🛸"}`;
+  document.getElementById("fuel").textContent =
+    `Fuel ⛽ P1: ${fuel[0]} | P2: ${fuel[1]}`;
+}
+
+function shuffle(a) {
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+</script>
+
+</body>
+</html>
